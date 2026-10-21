@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VideoForge · 视频格式转换器</title>
+    <meta
+      name="description"
+      content="纯浏览器本地视频格式转换，支持分辨率、缩放方式、帧速率等高级参数，可输出 MP4 / WebM / MKV / MOV / AVI / AMV / GIF / 音频格式。"
+    />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230a0c11'/%3E%3Cpath d='M11 9.5 23 16 11 22.5z' fill='%232dd4bf'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="./assets/styles.css" />
+  </head>
+  <body>
+    <div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
+
+    <header class="app-header">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M3.5 7A2.5 2.5 0 0 1 6 4.5h6A2.5 2.5 0 0 1 14.5 7v10A2.5 2.5 0 0 1 12 19.5H6A2.5 2.5 0 0 1 3.5 17V7Z" />
+            <path d="m16 9.6 4.5-2.7v10.2L16 14.4" />
+          </svg>
+        </span>
+        <div class="brand-text">
+          <h1>VideoForge</h1>
+          <p>浏览器本地视频格式转换器</p>
+        </div>
+      </div>
+      <div class="engine-pill" id="enginePill" title="转码引擎状态，点击可手动加载">
+        <span class="pulse" aria-hidden="true"></span>
+        <span id="engineLabel">转码引擎待加载</span>
+        <span class="engine-bar" id="engineBar" hidden><i id="engineBarFill"></i></span>
+      </div>
+    </header>
+
+    <main class="app-main">
+      <div class="workbench">
+        <div class="stack">
+          <!-- 源文件 -->
+          <section class="card">
+            <div class="card-head">
+              <h2>源文件</h2>
+              <span class="card-meta" id="sourceMeta">尚未选择</span>
+              <button class="btn-ghost sm" id="clearFilesBtn" type="button" hidden>清空</button>
+            </div>
+
+            <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="选择或拖入视频文件">
+              <input
+                type="file"
+                id="fileInput"
+                accept="video/*,audio/*,.amv,.flv,.mkv,.ts,.m2ts,.rmvb,.wmv,.3gp,.ogv"
+                multiple
+                hidden
+              />
+              <svg class="dz-icon" viewBox="0 0 48 48" aria-hidden="true">
+                <rect x="4" y="10" width="28" height="28" rx="5" />
+                <path d="m34 20 9-5.5v19L34 28" />
+                <path d="M18 18.5v11M12.5 24h11" class="plus" />
+              </svg>
+              <p class="dz-title">拖入视频，或 <span>点击选择文件</span></p>
+              <p class="dz-sub">MP4 / MKV / AVI / FLV / MOV / WEBM / TS / AMV 等 · 文件只在本地处理</p>
+            </div>
+
+            <ul class="file-list" id="fileList"></ul>
+          </section>
+
+          <!-- 设备屏幕适配 -->
+          <section class="card">
+            <div class="card-head">
+              <h2>设备屏幕适配</h2>
+              <span class="card-meta" id="deviceMeta">未测量</span>
+            </div>
+            <p class="note">用尺子量出播放器屏幕的宽和高，自动匹配合适的比例并推荐分辨率，再选择横屏或竖屏输出。单位无所谓，两边保持一致即可。</p>
+
+            <div class="field-row2">
+              <div class="field">
+                <label for="devWidth">屏幕宽度</label>
+                <input class="input" id="devWidth" type="number" min="1" step="0.1" placeholder="如 50" />
+              </div>
+              <div class="field">
+                <label for="devHeight">屏幕高度</label>
+                <input class="input" id="devHeight" type="number" min="1" step="0.1" placeholder="如 37.5" />
+              </div>
+            </div>
+
+            <div class="field-row2">
+              <div class="field">
+                <label for="devUnit">单位</label>
+                <select class="select" id="devUnit">
+                  <option value="mm">mm</option>
+                  <option value="cm">cm</option>
+                  <option value="inch">inch</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="devLongEdge">长边像素</label>
+                <select class="select" id="devLongEdge"></select>
+              </div>
+            </div>
+            <p class="note">长边像素越高越清晰，但文件越大；廉价播放器建议 320 及以下，过高可能卡顿或无法解码。</p>
+
+            <div class="switch-row">
+              <div class="switch-text">
+                <strong>已知设备分辨率</strong>
+                <span>说明书或设置里标注了屏幕分辨率（如 320×240）时勾选，校验比例后直接采用</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="devKnownRes" />
+                <span class="track"></span>
+              </label>
+            </div>
+
+            <div class="custom-size device-known" id="devKnownSize" hidden>
+              <input class="input" id="devKnownW" type="number" min="2" step="2" placeholder="宽度 px" />
+              <span class="times">×</span>
+              <input class="input" id="devKnownH" type="number" min="2" step="2" placeholder="高度 px" />
+            </div>
+
+            <p class="field-error" id="devError" hidden></p>
+
+            <div class="device-result" id="devResult" hidden>
+              <div class="device-ratio">
+                <span class="badge" id="devRatioBadge">4:3</span>
+                <span class="device-ratio-text" id="devRatioText"></span>
+              </div>
+              <p class="note" id="devRecText"></p>
+              <div class="device-orient">
+                <button class="orient-btn" type="button" id="devLandscapeBtn">
+                  <svg viewBox="0 0 48 48" aria-hidden="true">
+                    <rect x="4" y="13" width="40" height="22" rx="3" />
+                    <path d="M20 19.5 29 24l-9 4.5z" class="fill" />
+                  </svg>
+                  <strong>横屏播放</strong>
+                  <span id="devLandscapeSize">320×240</span>
+                </button>
+                <button class="orient-btn" type="button" id="devPortraitBtn">
+                  <svg viewBox="0 0 48 48" aria-hidden="true">
+                    <rect x="13" y="4" width="22" height="40" rx="3" />
+                    <path d="M21 19 29 24l-8 5z" class="fill" />
+                  </svg>
+                  <strong>竖屏播放</strong>
+                  <span id="devPortraitSize">240×320</span>
+                </button>
+              </div>
+              <p class="note" id="devSquareNote" hidden>屏幕为正方形，横竖屏结果相同。</p>
+              <p class="note" id="devAmvNote" hidden>当前为 AMV 格式，已限制在 160×120 以内（AMV 容器上限）。</p>
+              <p class="note" id="devApplyNote" hidden></p>
+            </div>
+          </section>
+
+          <!-- 输出格式 -->
+          <section class="card">
+            <div class="card-head">
+              <h2>输出格式</h2>
+              <span class="card-meta" id="formatMeta"></span>
+            </div>
+            <div class="format-grid" id="formatGrid" role="radiogroup" aria-label="输出格式"></div>
+            <p class="note" id="formatNote"></p>
+          </section>
+
+          <!-- 转换参数 -->
+          <section class="card">
+            <div class="card-head">
+              <h2>转换参数</h2>
+              <span class="save-indicator" id="saveIndicator">自动保存</span>
+              <button class="btn-ghost sm" id="resetBtn" type="button">恢复默认</button>
+            </div>
+
+            <div class="banner lock" id="amvBanner" hidden>
+              <svg viewBox="0 0 16 16" aria-hidden="true">
+                <rect x="3" y="7" width="10" height="7" rx="1.5" />
+                <path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" />
+              </svg>
+              <div>
+                AMV 设备格式已锁定参数：<strong>160×120 · 15fps · ADPCM 单声道 22050Hz</strong>。切换到其它格式时会自动恢复你之前的参数。
+              </div>
+            </div>
+
+            <div class="tabs" id="tabs" role="tablist">
+              <button class="tab is-active" data-tab="size" role="tab" type="button">分辨率 / 缩放</button>
+              <button class="tab" data-tab="fps" role="tab" type="button">帧速率</button>
+              <button class="tab" data-tab="video" role="tab" type="button">视频编码</button>
+              <button class="tab" data-tab="audio" role="tab" type="button">音频</button>
+              <button class="tab" data-tab="extra" role="tab" type="button">其它</button>
+            </div>
+
+            <div class="panes">
+              <!-- 尺寸 -->
+              <div class="pane is-active" data-pane="size" role="tabpanel">
+                <div class="banner info" id="copySizeNotice" hidden>“复制视频流”已开启，分辨率与缩放设置不会生效。</div>
+
+                <div class="field">
+                  <div class="field-head">
+                    <label for="resSelect">目标分辨率</label>
+                    <span class="badge" id="ratioBadge">源尺寸未知</span>
+                  </div>
+                  <select class="select" id="resSelect"></select>
+                </div>
+
+                <div class="custom-size" id="customSize" hidden>
+                  <input class="input" id="customW" type="number" min="2" step="2" placeholder="宽度 px" />
+                  <span class="times">×</span>
+                  <input class="input" id="customH" type="number" min="2" step="2" placeholder="高度 px" />
+                  <button class="btn-ghost sm" id="swapWH" type="button">交换</button>
+                </div>
+                <p class="field-error" id="sizeError" hidden></p>
+
+                <div class="field">
+                  <div class="field-head">
+                    <label>缩放方式</label>
+                    <span class="hint" id="scaleHint">等比缩放并补充黑边</span>
+                  </div>
+                  <div class="scale-grid" id="scaleGrid" role="radiogroup" aria-label="缩放方式"></div>
+                </div>
+
+                <div class="field-row2">
+                  <div class="field" id="padColorField">
+                    <label for="padColor">填充底色</label>
+                    <div class="color-wrap">
+                      <input type="color" id="padColor" value="#000000" />
+                      <span id="padColorText">#000000</span>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label for="swsFlags">重采样算法</label>
+                    <select class="select" id="swsFlags"></select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 帧率 -->
+              <div class="pane" data-pane="fps" role="tabpanel">
+                <div class="banner info" id="copyFpsNotice" hidden>“复制视频流”已开启，帧速率设置不会生效。</div>
+
+                <div class="field">
+                  <div class="field-head">
+                    <label>目标帧速率</label>
+                    <span class="badge" id="srcFpsBadge">源帧率未知</span>
+                  </div>
+                  <div class="chips" id="fpsChips" role="radiogroup" aria-label="帧速率"></div>
+                </div>
+
+                <div class="field" id="fpsCustomWrap" hidden>
+                  <label for="fpsCustom">自定义帧率 (fps)</label>
+                  <input class="input" id="fpsCustom" type="number" min="1" max="240" step="0.001" value="30" />
+                </div>
+
+                <div class="field">
+                  <label for="fpsSync">帧率模式</label>
+                  <select class="select" id="fpsSync">
+                    <option value="auto">自动（跟随编码器）</option>
+                    <option value="cfr">恒定帧率 CFR（推荐）</option>
+                    <option value="vfr">可变帧率 VFR（体积更小）</option>
+                    <option value="passthrough">透传（不重排时间戳）</option>
+                  </select>
+                  <p class="note">CFR 每帧间隔固定，兼容性最好；VFR 保留原始时间戳，适合屏幕录制素材。</p>
+                </div>
+              </div>
+
+              <!-- 视频 -->
+              <div class="pane" data-pane="video" role="tabpanel">
+                <div class="field">
+                  <label for="vcodec">视频编码器</label>
+                  <select class="select" id="vcodec"></select>
+                </div>
+
+                <div class="switch-row">
+                  <div class="switch-text">
+                    <strong>直接复制视频流</strong>
+                    <span>不重新编码，速度最快，但分辨率 / 帧率设置会失效</span>
+                  </div>
+                  <label class="switch">
+                    <input type="checkbox" id="copyVideo" />
+                    <span class="track"></span>
+                  </label>
+                </div>
+                <p class="note" id="copyVideoNote" hidden>GIF / AMV 格式必须重新编码，不支持复制视频流。</p>
+
+                <div id="videoEncodeFields">
+                  <div class="field">
+                    <div class="field-head"><label>质量控制</label></div>
+                    <div class="segmented" id="rateMode">
+                      <button type="button" data-value="crf" class="is-active">恒定质量 CRF</button>
+                      <button type="button" data-value="bitrate">目标码率</button>
+                    </div>
+                  </div>
+
+                  <div class="field" id="crfField">
+                    <div class="field-head">
+                      <label for="crfRange">CRF 质量</label>
+                      <output id="crfValue">23</output>
+                    </div>
+                    <input type="range" id="crfRange" min="0" max="51" step="1" value="23" />
+                    <div class="range-scale"><span>更小体积</span><span>更高画质</span></div>
+                  </div>
+
+                  <div class="field-row2" id="bitrateFields" hidden>
+                    <div class="field">
+                      <label for="bitrate">目标码率 (kbps)</label>
+                      <input class="input" id="bitrate" type="number" min="100" step="100" value="2500" />
+                    </div>
+                    <div class="field">
+                      <label for="maxrate">最大码率 (kbps)</label>
+                      <input class="input" id="maxrate" type="number" min="100" step="100" value="4000" />
+                    </div>
+                  </div>
+
+                  <div class="field-row2">
+                    <div class="field" id="presetField">
+                      <label for="x264Preset">编码速度预设</label>
+                      <select class="select" id="x264Preset"></select>
+                    </div>
+                    <div class="field" id="pixFmtField">
+                      <label for="pixFmt">像素格式</label>
+                      <select class="select" id="pixFmt"></select>
+                    </div>
+                  </div>
+
+                  <div class="field">
+                    <label for="gop">关键帧间隔 GOP（0 为自动）</label>
+                    <input class="input" id="gop" type="number" min="0" step="1" value="0" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- 音频 -->
+              <div class="pane" data-pane="audio" role="tabpanel">
+                <div class="field">
+                  <div class="field-head"><label>音频处理</label></div>
+                  <div class="segmented" id="audioMode">
+                    <button type="button" data-value="encode" class="is-active">重新编码</button>
+                    <button type="button" data-value="copy">直接复制</button>
+                    <button type="button" data-value="none">移除音轨</button>
+                  </div>
+                </div>
+                <p class="note" id="amvAudioNote" hidden>AMV 容器要求 ADPCM 单声道 22050 Hz，音频参数已锁定。</p>
+
+                <div id="audioEncodeFields">
+                  <div class="field">
+                    <label for="acodec">音频编码器</label>
+                    <select class="select" id="acodec"></select>
+                  </div>
+                  <div class="field-row2">
+                    <div class="field">
+                      <label for="abitrate">音频码率</label>
+                      <select class="select" id="abitrate"></select>
+                    </div>
+                    <div class="field">
+                      <label for="arate">采样率</label>
+                      <select class="select" id="arate"></select>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label for="achannels">声道</label>
+                    <select class="select" id="achannels">
+                      <option value="0">保持原始</option>
+                      <option value="2">立体声 (2.0)</option>
+                      <option value="1">单声道 (1.0)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 其它 -->
+              <div class="pane" data-pane="extra" role="tabpanel">
+                <div class="field-row2">
+                  <div class="field">
+                    <label for="trimStart">开始时间</label>
+                    <input class="input" id="trimStart" placeholder="00:00:00" />
+                  </div>
+                  <div class="field">
+                    <label for="trimEnd">结束时间</label>
+                    <input class="input" id="trimEnd" placeholder="00:00:00" />
+                  </div>
+                </div>
+                <p class="field-error" id="trimError" hidden></p>
+                <p class="note">留空表示从片头 / 到片尾，也可以直接填写秒数，例如 12.5。</p>
+
+                <div class="switch-row">
+                  <div class="switch-text">
+                    <strong>快速启动 (faststart)</strong>
+                    <span>把索引信息前置，边下边播，适合 MP4 / MOV / M4A</span>
+                  </div>
+                  <label class="switch">
+                    <input type="checkbox" id="faststart" />
+                    <span class="track"></span>
+                  </label>
+                </div>
+
+                <div class="switch-row">
+                  <div class="switch-text">
+                    <strong>移除元数据</strong>
+                    <span>剥离标题、设备、拍摄时间等标签信息</span>
+                  </div>
+                  <label class="switch">
+                    <input type="checkbox" id="stripMeta" checked />
+                    <span class="track"></span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- 参数页被格式隐藏时的占位说明 -->
+              <div class="pane-placeholder" id="panePlaceholder" hidden></div>
+            </div>
+          </section>
+        </div>
+
+        <aside class="side">
+          <section class="card">
+            <div class="card-head">
+              <h2>命令预览</h2>
+              <button class="btn-ghost sm" id="copyCmd" type="button">复制</button>
+            </div>
+            <pre class="cmd" id="cmdPreview"></pre>
+            <div class="warnings" id="warnings" hidden></div>
+          </section>
+
+          <section class="card">
+            <div class="card-head">
+              <h2>任务</h2>
+              <span class="card-meta" id="taskMeta">空闲</span>
+              <button class="btn-ghost sm" id="clearResultsBtn" type="button" hidden>清空</button>
+            </div>
+
+            <div class="progress-block" id="progressBlock" hidden>
+              <div class="progress-head">
+                <span id="progressLabel">准备中…</span>
+                <span id="progressPct">0%</span>
+              </div>
+              <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+              <div class="progress-foot">
+                <span id="progressTime"></span>
+                <button class="btn-ghost sm" id="cancelBtn" type="button">取消</button>
+              </div>
+            </div>
+
+            <ul class="results" id="results"></ul>
+            <p class="empty" id="resultsEmpty">转换完成的文件会出现在这里</p>
+          </section>
+
+          <section class="card log-card" id="logCard">
+            <div class="card-head">
+              <h2>运行日志</h2>
+              <button class="btn-ghost sm" id="clearLog" type="button">清空</button>
+              <button class="btn-ghost sm" id="toggleLogBtn" type="button">收起</button>
+            </div>
+            <div class="log" id="log" aria-live="polite"></div>
+          </section>
+        </aside>
+      </div>
+    </main>
+
+    <div class="dock">
+      <div class="dock-info">
+        <strong id="dockTitle">准备就绪</strong>
+        <span id="dockSub">选择源文件后即可开始转换</span>
+      </div>
+      <div class="dock-actions">
+        <span class="kbd-hint"><kbd>Ctrl</kbd><i>+</i><kbd>Enter</kbd> 开始转换</span>
+        <span class="dock-est" id="dockEst"></span>
+        <button class="btn btn-primary" id="convertBtn" type="button">开始转换</button>
+      </div>
+    </div>
+
+    <script type="module" src="./assets/js/app.js"></script>
+  </body>
+</html>
