@@ -2,7 +2,7 @@
   "name": "videoforge",
   "version": "1.1.0",
   "private": true,
-  "description": "浏览器本地视频格式转换器，支持分辨率、缩放方式、帧速率等高级参数，可输出 MP4 / WebM / MKV / MOV / AVI / AMV / GIF 等格式",
+  "description": "廉价 MP4 播放器视频转换器：AMV 一键转换，支持设备屏幕适配与高级转码参数，纯浏览器本地处理，提供单文件 exe",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js --open",
@@ -14,6 +14,6 @@
   "devDependencies": {
     "postject": "1.0.0-alpha.6"
   },
-  "keywords": ["ffmpeg", "wasm", "video", "converter", "amv"],
+  "keywords": ["amv", "amv-converter", "mp4-player", "mp4播放器", "ffmpeg", "ffmpeg-wasm", "wasm", "video", "converter", "transcoder"],
   "license": "MIT"
 }
